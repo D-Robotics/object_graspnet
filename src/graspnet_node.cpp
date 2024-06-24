@@ -87,17 +87,17 @@ GrashpNetNode::GrashpNetNode(const std::string& node_name,
      << "\n topk: " << topk_;
   RCLCPP_WARN(rclcpp::get_logger("graspnet_node"), "%s", ss.str().c_str());
 
-  // // Load DNN model config
-  // if (Init() != 0) {
-  //   RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Init failed!");
-  //   return;
-  // }
-  // auto model = GetModel();
-  // if (!model) {
-  //   RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Invalid model");
-  //   return;
-  // }
-  // model->GetInputTensorProperties(tensor_properties_, 0);
+  // Load DNN model config
+  if (Init() != 0) {
+    RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Init failed!");
+    return;
+  }
+  auto model = GetModel();
+  if (!model) {
+    RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Invalid model");
+    return;
+  }
+  model->GetInputTensorProperties(tensor_properties_, 0);
 
   // Load Cam config
   if (LoadConfig() != 0) {
@@ -107,8 +107,8 @@ GrashpNetNode::GrashpNetNode(const std::string& node_name,
 
 
   if (0 == feed_type_) {
-    // Feedback();
-    Debug();
+    Feedback();
+    // Debug();
   } else {
     msg_publisher_ = this->create_publisher<ai_msgs::msg::PerceptionTargets>(
         ai_msg_pub_topic_name_, 10);
