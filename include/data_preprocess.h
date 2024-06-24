@@ -58,6 +58,7 @@ class InputPreProcessor {
   int32_t Process(
     const uint16_t *in_depth_data,
     std::vector<std::vector<float>>& cloud_sampled,
+    std::vector<std::vector<float>>& cloud_masked,
     const int height,
     const int width,
     const int num_points=20000);
@@ -72,6 +73,7 @@ class InputPreProcessor {
   int32_t ProcessImg(
     const std::string& in_depth,
     std::vector<std::vector<float>>& cloud_sampled,
+    std::vector<std::vector<float>>& cloud_masked,
     const int num_points=20000);
 
   /**

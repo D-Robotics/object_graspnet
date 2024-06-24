@@ -97,14 +97,15 @@ hbm_img_msgs为自定义的图片消息格式，用于shared mem场景下的图�
 | cache_len_limit         | 限制推理数             | 否                   | 2                   |
 | feed_type          | 图片来源，0：本地；1：订阅            | 否                   | 0                   |
 | image              | 本地深度图片地址                          | 否                   | config/depth.png     |
+| is_collision_detect  | 是否打开碰撞检测        | 否                   | 0                   | 
 | is_shared_mem_sub  | 使用shared mem通信方式订阅图片        | 否                   | 0                   | 
 | is_sync_mode  | 推理模式，0：同步；1：异步        | 否                   | 0                   | 
 | model_file_name        | 模型文件            | 否 | config/graspnet_test.bin                   |
 | num_points         | 采样点云数             | 否                   | 8000                   | 
 | ai_msg_pub_topic_name         | 智能消息发布话题信息             | 否                   | /hobot_object_graspgroup                   | 
 | ros_img_sub_topic_name         | 深度图订阅话题信息            | 否                   | /camera/depth/image_raw                   | 
+| topk  | 输出Top K组 GraspGroup。当 topk > 0 时有效        | 否                   | 5                   | 
 
-          
 
 ## 运行
 

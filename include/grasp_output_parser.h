@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef grasp_output_PARSER_H
-#define grasp_output_PARSER_H
+#ifndef GRASP_OUTPUT_PARSER_H_
+#define GRASP_OUTPUT_PARSER_H_
 
 #include <memory>
 #include <string>
@@ -22,6 +22,8 @@
 
 #include "dnn_node/dnn_node_data.h"
 #include "rclcpp/rclcpp.hpp"
+
+#include "include/grasp_collision_detector.h"
 
 using hobot::dnn_node::DNNTensor;
 using hobot::dnn_node::Model;
@@ -101,7 +103,16 @@ class GraspOutputParser {
     const float* grasp_tolerance_pred,
     std::shared_ptr<GraspGroupResult> &output
   );
+ 
+ private:
+  int fp2_xyz_index_ = 0;
+  int objectness_score_index_ = 1;
+  int grasp_top_view_xyz_index_ = 5;
+  int grasp_score_pred_index_ = 7;
+  int grasp_angle_cls_pred_index_ = 8;
+  int grasp_width_pred_index_ = 9;
+  int grasp_tolerance_pred_index_ = 10;
 
 };
 
-#endif  // grasp_output_PARSER_H
+#endif  // GRASP_OUTPUT_PARSER_H_

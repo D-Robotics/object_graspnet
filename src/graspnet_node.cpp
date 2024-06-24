@@ -47,6 +47,7 @@ GrashpNetNode::GrashpNetNode(const std::string& node_name,
   this->declare_parameter<int>("cache_len_limit", cache_len_limit_);
   this->declare_parameter<int>("feed_type", feed_type_);
   this->declare_parameter<std::string>("image", image_);
+  this->declare_parameter<int>("is_collision_detect", is_collision_detect_);
   this->declare_parameter<int>("is_shared_mem_sub", is_shared_mem_sub_);
   this->declare_parameter<int>("is_sync_mode", is_sync_mode_);
   this->declare_parameter<std::string>("model_file_name", model_file_name_);
@@ -55,10 +56,12 @@ GrashpNetNode::GrashpNetNode(const std::string& node_name,
                                        ai_msg_pub_topic_name_);
   this->declare_parameter<std::string>("ros_img_sub_topic_name",
                                        ros_img_sub_topic_name_);
+  this->declare_parameter<int>("topk", topk_);
 
   this->get_parameter<int>("cache_len_limit", cache_len_limit_);
   this->get_parameter<int>("feed_type", feed_type_);
   this->get_parameter<std::string>("image", image_);
+  this->get_parameter<int>("is_collision_detect", is_collision_detect_);
   this->get_parameter<int>("is_shared_mem_sub", is_shared_mem_sub_);
   this->get_parameter<int>("is_sync_mode", is_sync_mode_);
   this->get_parameter<std::string>("model_file_name", model_file_name_);
@@ -67,31 +70,34 @@ GrashpNetNode::GrashpNetNode(const std::string& node_name,
                                    ai_msg_pub_topic_name_);
   this->get_parameter<std::string>("ros_img_sub_topic_name",
                                    ros_img_sub_topic_name_);
+  this->get_parameter<int>("topk", topk_);
 
   std::stringstream ss;
   ss << "Parameter:"
      << "\n cache_len_limit: " << cache_len_limit_
      << "\n feed_type(0:local, 1:sub): " << feed_type_
      << "\n image: " << image_
+     << "\n is_collision_detect: " << is_collision_detect_
      << "\n is_shared_mem_sub: " << is_shared_mem_sub_
      << "\n is_sync_mode_: " << is_sync_mode_
      << "\n model_file_name_: " << model_file_name_
      << "\n num_points: " << num_points_
      << "\n ai_msg_pub_topic_name: " << ai_msg_pub_topic_name_
-     << "\n ros_img_sub_topic_name: " << ros_img_sub_topic_name_;
+     << "\n ros_img_sub_topic_name: " << ros_img_sub_topic_name_
+     << "\n topk: " << topk_;
   RCLCPP_WARN(rclcpp::get_logger("graspnet_node"), "%s", ss.str().c_str());
 
-  // Load DNN model config
-  if (Init() != 0) {
-    RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Init failed!");
-    return;
-  }
-  auto model = GetModel();
-  if (!model) {
-    RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Invalid model");
-    return;
-  }
-  model->GetInputTensorProperties(tensor_properties_, 0);
+  // // Load DNN model config
+  // if (Init() != 0) {
+  //   RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Init failed!");
+  //   return;
+  // }
+  // auto model = GetModel();
+  // if (!model) {
+  //   RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Invalid model");
+  //   return;
+  // }
+  // model->GetInputTensorProperties(tensor_properties_, 0);
 
   // Load Cam config
   if (LoadConfig() != 0) {
@@ -101,8 +107,8 @@ GrashpNetNode::GrashpNetNode(const std::string& node_name,
 
 
   if (0 == feed_type_) {
-    Feedback();
-    // Debug();
+    // Feedback();
+    Debug();
   } else {
     msg_publisher_ = this->create_publisher<ai_msgs::msg::PerceptionTargets>(
         ai_msg_pub_topic_name_, 10);
@@ -229,6 +235,18 @@ int GrashpNetNode::PostProcess(
   auto gg_val = std::make_shared<GraspGroupResult>();
   parser->Parse(gg_val, grasp_output->output_tensors);
   
+  // 3. 碰撞检测后处理筛选GraspGroup
+  if (is_collision_detect_ == 1) {
+    auto detector = std::make_shared<GraspCollisionDetector>(topk_);
+    detector->Init(grasp_output->clouds);
+    detector->Process(gg_val);
+  }
+  
+  // 检查向量大小并删除多余元素
+  if (topk_ > 0 && gg_val->graspgroups.size() > topk_) {
+    gg_val->graspgroups.erase(gg_val->graspgroups.begin() + topk_, gg_val->graspgroups.end());
+  }
+
   if (!gg_val) {
     return -1;
   }
@@ -360,11 +378,13 @@ void GrashpNetNode::RosImgProcess(
   RCLCPP_INFO(rclcpp::get_logger("graspnet_node"), "%s", ss.str().c_str());
   // 1. 将深度图处理成点云, 并保存为模型输入数据类型DNNTensor
   std::shared_ptr<DNNTensor> tensor = nullptr;
+  std::vector<std::vector<float>> clouds;
   if ("16UC1" == img_msg->encoding) {
     std::vector<std::vector<float>> cloud_sampled;
     preprossor_->Process(
           reinterpret_cast<const uint16_t*>(img_msg->data.data()),
-          cloud_sampled, 
+          cloud_sampled,
+          clouds,
           img_msg->height,
           img_msg->width,
           num_points_);
@@ -404,6 +424,8 @@ void GrashpNetNode::RosImgProcess(
   dnn_output->perf_preprocess.stamp_start.sec = time_start.tv_sec;
   dnn_output->perf_preprocess.stamp_start.nanosec = time_start.tv_nsec;
   dnn_output->perf_preprocess.set__type(model_name_ + "_preprocess");
+  // 存储原始点云数据
+  dnn_output->clouds = std::move(clouds);
   
   if (current_cache_ >= cache_len_limit_) {
     return;
@@ -440,12 +462,14 @@ void GrashpNetNode::SharedMemImgProcess(
 
   // 1. 将深度图处理成点云, 并保存为模型输入数据类型DNNTensor
   std::shared_ptr<DNNTensor> tensor = nullptr;
+  std::vector<std::vector<float>> clouds;
   if ("16UC1" ==
       std::string(reinterpret_cast<const char*>(img_msg->encoding.data()))) {
     std::vector<std::vector<float>> cloud_sampled;
     preprossor_->Process(
           reinterpret_cast<const uint16_t*>(img_msg->data.data()),
-          cloud_sampled, 
+          cloud_sampled,
+          clouds,
           img_msg->height,
           img_msg->width,
           num_points_);
@@ -483,7 +507,8 @@ void GrashpNetNode::SharedMemImgProcess(
   dnn_output->perf_preprocess.stamp_start.sec = time_start.tv_sec;
   dnn_output->perf_preprocess.stamp_start.nanosec = time_start.tv_nsec;
   dnn_output->perf_preprocess.set__type(model_name_ + "_preprocess");
-  
+    // 存储原始点云数据
+  dnn_output->clouds = std::move(clouds);
   if (current_cache_ >= cache_len_limit_) {
     return;
   }
@@ -503,7 +528,8 @@ int GrashpNetNode::Feedback() {
 
   // 1. preprocess
   std::vector<std::vector<float>> cloud_sampled;
-  preprossor_->ProcessImg(image_, cloud_sampled, num_points_);
+  std::vector<std::vector<float>> clouds;
+  preprossor_->ProcessImg(image_, cloud_sampled, clouds, num_points_);
 
   float* flat_data = new float[num_points_ * 3];
   // Copy data from the 2D vector to the 1D array
@@ -538,7 +564,8 @@ int GrashpNetNode::Feedback() {
   clock_gettime(CLOCK_REALTIME, &time_now);
   dnn_output->perf_preprocess.stamp_end.sec = time_now.tv_sec;
   dnn_output->perf_preprocess.stamp_end.nanosec = time_now.tv_nsec;
-
+  // 存储原始点云数据
+  dnn_output->clouds = std::move(clouds);
   // 3. 开始预测
   if (Run(inputs, dnn_output) != 0) {
     RCLCPP_ERROR(rclcpp::get_logger("graspnet_node"), "Run Model Error");
@@ -548,8 +575,8 @@ int GrashpNetNode::Feedback() {
   return 0;
 }
 
-
-int readbinary(const std::string &filename, const float* &dataOut) {
+template<typename T>
+int readbinary(const std::string &filename, const T* &dataOut) {
   std::string folder = "dump/";
   std::ifstream ifs(folder + filename + ".bin", std::ios::in | std::ios::binary);
   if (!ifs) {
@@ -560,8 +587,8 @@ int readbinary(const std::string &filename, const float* &dataOut) {
   ifs.seekg(0, std::ios::beg);
   char* data = new char[len];
   ifs.read(data, len);
-  dataOut = reinterpret_cast<const float *>(data);
-  return len / sizeof(float);
+  dataOut = reinterpret_cast<const T *>(data);
+  return len / sizeof(T);
 }
 
 int GrashpNetNode::Debug() {
@@ -590,8 +617,36 @@ int GrashpNetNode::Debug() {
   // 降序排序
   std::sort(gg_val->graspgroups.begin(), gg_val->graspgroups.end(), compareByScore);
 
+  if (is_collision_detect_ == 1) {
+    auto detector = std::make_shared<GraspCollisionDetector>(topk_);
+    const double* cloud;
+    readbinary("cloud", cloud);
+    std::vector<std::vector<float>> point_clouds;
+    // 每个点有3个坐标
+    int coords_per_point = 3;
+    int num_points = 739708;
+    // 遍历每个点
+    for (int i = 0; i < num_points; ++i) {
+        std::vector<float> point(coords_per_point);
+        // 将点云数据复制到vector中
+        for (int j = 0; j < coords_per_point; ++j) {
+            point[j] = static_cast<float>(cloud[i * coords_per_point + j]);
+        }
+        // 将当前点添加到点云集合中
+        point_clouds.push_back(point);
+    }
+    detector->Init(point_clouds);
+    detector->Process(gg_val);
+  }
+
+  // 检查向量大小并删除多余元素
+  if (topk_ > 0 && gg_val->graspgroups.size() > topk_) {
+    gg_val->graspgroups.erase(gg_val->graspgroups.begin() + topk_, gg_val->graspgroups.end());
+  }
+
   std::stringstream ss;
-  ss << gg_val->graspgroups[0];
+  ss << "grasp group size: " << gg_val->graspgroups.size()
+  << gg_val->graspgroups[0];
   RCLCPP_WARN(rclcpp::get_logger("graspnet_node"), "%s", ss.str().c_str());
   return 0;
 }
