@@ -48,6 +48,9 @@ using ai_msgs::msg::PerceptionTargets;
 struct GraspNetOutput : public DnnNodeOutput {
   std::shared_ptr<std_msgs::msg::Header> image_msg_header = nullptr;
 
+  // 原始点云
+  std::vector<std::vector<float>> clouds;
+
   ai_msgs::msg::Perf perf_preprocess;
 };
 
@@ -70,12 +73,14 @@ class GrashpNetNode : public DnnNode {
   // 用于预测的图片来源, 0：本地U16位深度图, 1： 订阅到的image msg
   int feed_type_ = 0;
   std::string image_ = "config/depth.png";
+  int is_collision_detect_ = 0;
   int is_sync_mode_ = 0;
   // 使用shared mem通信方式订阅图片
   int is_shared_mem_sub_ = 0;
   std::string model_file_name_ = "config/graspnet_test.bin";
   std::string model_name_ = "graspnet_test";
   int num_points_ = 8000;
+  int topk_ = 5;
 
   int LoadConfig();
   

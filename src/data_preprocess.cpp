@@ -97,6 +97,7 @@ std::vector<std::vector<float>> sample_points(const std::vector<std::vector<floa
 int32_t InputPreProcessor::Process(
     const uint16_t *in_depth_data,
     std::vector<std::vector<float>>& cloud_sampled,
+    std::vector<std::vector<float>>& cloud_masked,
     const int height,
     const int width,
     const int num_points) {
@@ -109,7 +110,7 @@ int32_t InputPreProcessor::Process(
     }
 
     cv::Mat workspace_mask = cv::Mat::ones(cv::Size(height, width), CV_8UC1);
-    std::vector<std::vector<float>> cloud_masked = create_point_cloud_from_depth_image(depth, camera_info, workspace_mask);
+    cloud_masked = create_point_cloud_from_depth_image(depth, camera_info, workspace_mask);
     if (cloud_masked.size() >= num_points)
     {
         std::vector<int> indices = gen_unique_random_nums(0, cloud_masked.size() - 1, num_points);
@@ -130,6 +131,7 @@ int32_t InputPreProcessor::Process(
 int32_t InputPreProcessor::ProcessImg(
     const std::string& in_depth,
     std::vector<std::vector<float>>& cloud_sampled,
+    std::vector<std::vector<float>>& cloud_masked,
     const int num_points) {
 
     cv::Mat depth = cv::imread(in_depth, cv::IMREAD_UNCHANGED);
@@ -144,7 +146,7 @@ int32_t InputPreProcessor::ProcessImg(
         workspace_mask = cv::Mat::ones(cv::Size(1280, 720), CV_8UC1);
     }
 
-    std::vector<std::vector<float>> cloud_masked = create_point_cloud_from_depth_image(depth, camera_info, workspace_mask);
+    cloud_masked = create_point_cloud_from_depth_image(depth, camera_info, workspace_mask);
     if (cloud_masked.size() >= num_points)
     {
         std::vector<int> indices = gen_unique_random_nums(0, cloud_masked.size() - 1, num_points);

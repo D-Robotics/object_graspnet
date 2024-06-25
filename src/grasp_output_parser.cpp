@@ -387,19 +387,19 @@ int32_t GraspOutputParser::Parse(
   }
 
   const float *fp2_xyz =
-    reinterpret_cast<float *>(output_tensors[0]->sysMem[0].virAddr);
+    reinterpret_cast<float *>(output_tensors[fp2_xyz_index_]->sysMem[0].virAddr);
   const float *objectness_score =
-    reinterpret_cast<float *>(output_tensors[1]->sysMem[0].virAddr);
+    reinterpret_cast<float *>(output_tensors[objectness_score_index_]->sysMem[0].virAddr);
   const float *grasp_top_view_xyz =
-    reinterpret_cast<float *>(output_tensors[5]->sysMem[0].virAddr);
+    reinterpret_cast<float *>(output_tensors[grasp_top_view_xyz_index_]->sysMem[0].virAddr);
   const float *grasp_score_pred =
-    reinterpret_cast<float *>(output_tensors[7]->sysMem[0].virAddr);
+    reinterpret_cast<float *>(output_tensors[grasp_score_pred_index_]->sysMem[0].virAddr);
   const float *grasp_angle_cls_pred =
-    reinterpret_cast<float *>(output_tensors[8]->sysMem[0].virAddr);
+    reinterpret_cast<float *>(output_tensors[grasp_angle_cls_pred_index_]->sysMem[0].virAddr);
   const float *grasp_width_pred =
-    reinterpret_cast<float *>(output_tensors[9]->sysMem[0].virAddr);
+    reinterpret_cast<float *>(output_tensors[grasp_width_pred_index_]->sysMem[0].virAddr);
   const float *grasp_tolerance_pred =
-    reinterpret_cast<float *>(output_tensors[10]->sysMem[0].virAddr);
+    reinterpret_cast<float *>(output_tensors[grasp_tolerance_pred_index_]->sysMem[0].virAddr);
 
   auto parser = std::make_shared<GraspOutputParser>();
   parser->Decode(fp2_xyz, objectness_score, grasp_top_view_xyz, grasp_score_pred,

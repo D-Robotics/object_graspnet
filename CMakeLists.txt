@@ -40,6 +40,7 @@ find_package(dnn_node REQUIRED)
 find_package(hbm_img_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 add_definitions(-DSHARED_MEM_ENABLED)
 
@@ -62,6 +63,7 @@ message("CMAKE_SYSROOT is " ${CMAKE_SYSROOT})
 include_directories(
   ${CMAKE_SYSROOT}/usr/include/
   ${CMAKE_SYSROOT}/usr/include/opencv/
+  ${CMAKE_SYSROOT}/usr/include/eigen/
 )
 
 link_directories(
@@ -74,6 +76,7 @@ add_executable(${PROJECT_NAME}
   src/graspnet_node.cpp
   src/data_preprocess.cpp
   src/grasp_output_parser.cpp
+  src/grasp_collision_detector.cpp
 )
 
 ament_target_dependencies(
