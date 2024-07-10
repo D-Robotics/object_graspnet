@@ -79,7 +79,7 @@ ros package：
 | image              | 本地深度图片地址                          | 否                   | config/depth.png     |
 | is_collision_detect  | 是否打开碰撞检测        | 否                   | 0                   | 
 | model_file_name        | 模型文件            | 否 | config/graspnet_test.bin                   |
-| num_points         | 采样点云数             | 否                   | 8000                   | 
+| num_points         | 采样点云数             | 否                   | 2500                   | 
 | ai_msg_pub_topic_name         | 智能消息发布话题信息             | 否                   | /hobot_object_graspgroup                   | 
 | ros_img_sub_topic_name         | 深度图订阅话题信息            | 否                   | /camera/depth/image_raw                   | 
 
